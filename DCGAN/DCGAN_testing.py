@@ -47,7 +47,7 @@ SEED_SIZE = 100
 # Configuration
 DATA_PATH = '/media/mihael/Hard/fAnoGAN_testing_glom/Results'
 images_path = '/media/mihael/Hard/fAnoGAN_testing_glom/Healthy_256'
-EPOCHS = 50
+EPOCHS = 100
 BATCH_SIZE = 2
 BUFFER_SIZE = 14
 
