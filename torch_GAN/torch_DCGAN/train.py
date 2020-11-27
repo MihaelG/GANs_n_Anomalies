@@ -16,14 +16,16 @@ from model import Discriminator, Generator, initialize_weights
 
 # Hyperparameters etc.
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-LEARNING_RATE = 1e-5  # could also use two lrs, one for gen and one for disc
-BATCH_SIZE = 64
+LEARNING_RATE = 2e-4  # could also use two lrs, one for gen and one for disc
+BATCH_SIZE = 128
 IMAGE_SIZE = 64
 CHANNELS_IMG = 3
 NOISE_DIM = 100
 NUM_EPOCHS = 20
-FEATURES_DISC = 64
-FEATURES_GEN = 128
+FEATURES_DISC = 32
+FEATURES_GEN = 64
+
+# smooth = 0.1
 
 transforms = transforms.Compose(
     [
@@ -48,8 +50,8 @@ disc = Discriminator(CHANNELS_IMG, FEATURES_DISC).to(device)
 initialize_weights(gen)
 initialize_weights(disc)
 
-opt_gen = optim.Adam(gen.parameters(), lr=LEARNING_RATE, betas=(0.5, 0.999))
-opt_disc = optim.Adam(disc.parameters(), lr=LEARNING_RATE, betas=(0.5, 0.999))
+opt_gen = optim.Adam(gen.parameters(), lr=LEARNING_RATE, betas=(0.81, 0.995))
+opt_disc = optim.Adam(disc.parameters(), lr=LEARNING_RATE, betas=(0.81, 0.995))
 criterion = nn.BCELoss()
 
 fixed_noise = torch.randn(32, NOISE_DIM, 1, 1).to(device)
@@ -65,10 +67,11 @@ for epoch in range(NUM_EPOCHS):
         real = real.to(device)
         noise = torch.randn(BATCH_SIZE, NOISE_DIM, 1, 1).to(device)
         fake = gen(noise)
-
+        # fake2 = gen(noise)
+        '''
         ### Train Discriminator: max log(D(x)) + log(1 - D(G(z)))
         disc_real = disc(real).reshape(-1) # reshaping to N instead of N x 1 x 1 x 1
-        loss_disc_real = criterion(disc_real, torch.ones_like(disc_real))
+        loss_disc_real = criterion(disc_real, torch.ones_like(disc_real))#*(1-smooth))
         disc_fake = disc(fake.detach()).reshape(-1)
         loss_disc_fake = criterion(disc_fake, torch.zeros_like(disc_fake))
         loss_disc = (loss_disc_real + loss_disc_fake) / 2
@@ -81,6 +84,44 @@ for epoch in range(NUM_EPOCHS):
         loss_gen = criterion(output, torch.ones_like(output))
         gen.zero_grad()
         loss_gen.backward()
+        opt_gen.step()
+
+        # output2 = disc(fake2).reshape(-1)
+        # loss_gen2 = criterion(output2, torch.ones_like(output2))
+        # gen.zero_grad()
+        # loss_gen2.backward()
+        opt_gen.step()
+        '''
+        ### Version from pytorch website
+        disc.zero_grad()
+        disc_real = disc(real).reshape(-1)
+        loss_disc_real = criterion(disc_real, torch.ones_like(disc_real))
+        # loss_disc_real.backward(retain_graph=True)
+
+        disc.zero_grad()
+        disc_fake = disc(fake.detach()).reshape(-1)
+        loss_disc_fake = criterion(disc_fake, torch.zeros_like(disc_fake))
+        # loss_disc_fake.backward(retain_graph=True)
+
+        disc.zero_grad()
+        loss_disc = (loss_disc_real + loss_disc_fake) / 2
+        loss_disc.backward()
+        opt_disc.step()
+
+        # Generator
+        gen.zero_grad()
+        output = disc(fake).reshape(-1)
+        loss_gen = criterion(output, torch.ones_like(output))
+        loss_gen.backward()
+        opt_gen.step()
+
+        # DROPOUT AND 2 TIMES GEN OPTIMISATION
+
+
+        # gen.zero_grad()
+        # output = disc(fake).reshape(-1)
+        # loss_gen = criterion(output, torch.ones_like(output))
+        # loss_gen.backward()
         opt_gen.step()
 
         # Print losses occasionally and print to tensorboard
